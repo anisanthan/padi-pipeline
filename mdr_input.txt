@@ -1,0 +1,42 @@
+# ==============================================================================================
+# INPUT FILE FOR mdr_full_pipeline.py   (step 3 of 5: MDR / DTR age trends)
+#
+# Edit the settings and the list of bacteria below, save, then run:
+#     python3 mdr_full_pipeline.py
+# Folders can be full paths or relative to this file's folder.
+#
+# mdr_dtr_folder: one subfolder per bacterium (spaces as _), three ATLAS "MIC Distribution"
+# exports per age group. For each: that bacterium, ALL antibiotics, ALL years, View By: Country,
+# age filter = the age group, and the Phenotype filter:
+#   none -> _baseline      MDR (CLSI) -> _mdr      DTR -> _dtr
+#       <mdr_dtr_folder>/Escherichia_coli/atlas_pair_0-18_baseline.xlsx
+#       <mdr_dtr_folder>/Escherichia_coli/atlas_pair_0-18_mdr.xlsx
+#       <mdr_dtr_folder>/Escherichia_coli/atlas_pair_0-18_dtr.xlsx
+#   ...and the same for 19-64 and 65+. ATLAS offers MDR/DTR only for some (Gram-negative)
+#   bacteria; if a filter isn't offered, leave that file out.
+#
+# specimen_source_folders / year_folder: you do NOT need these files before the first run.
+# If a robust finding's specimen source or year mix differs between age groups, the run ends
+# with "ACTION NEEDED" and writes files_to_download.txt in results_folder, listing exactly
+# which files to download, the ATLAS filters, and the name and folder for each. Download them,
+# then run again. Several specimen source folders can be listed, separated by commas.
+#
+# results_folder: where the results go.
+#
+# BACTERIA (bottom of this file): one per line, e.g.  Escherichia coli
+#   or "all" for every bacterium in mdr_dtr_folder (what the paper did).
+#   IMPORTANT: the Benjamini-Hochberg correction covers every comparison in a run, so the
+#   paper's results come from "all".
+# ==============================================================================================
+
+mdr_dtr_folder = data/mdr_dtr
+specimen_source_folders = data/specimen_source, data/specimen_source_extra
+year_folder = data/year
+results_folder = results/mdr_dtr
+
+# ---- Bacteria to analyze ----
+all
+
+# Examples (remove the # to use; then put a # in front of "all" above):
+# Escherichia coli
+# Klebsiella pneumoniae

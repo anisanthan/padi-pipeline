@@ -1,0 +1,17 @@
+# ==============================================================================================
+# INPUT FILE FOR mdr_mic_correlation.py   (step 5 of 5)
+#
+# Checks whether bacteria with a bigger MDR gap between children and adults also have bigger
+# MIC shifts. Edit the settings below, save, then run:
+#     python3 mdr_mic_correlation.py
+# Run padi_full_pipeline.py and mdr_full_pipeline.py first (both with "all").
+# Paths can be full paths or relative to this file's folder.
+#
+# padi_all_comparisons: padi_all_comparisons.csv written by padi_full_pipeline.py
+# mdr_all_comparisons:  mdr_all_comparisons.csv written by mdr_full_pipeline.py
+# results_folder:       where the results go
+# ==============================================================================================
+
+padi_all_comparisons = results/padi/padi_all_comparisons.csv
+mdr_all_comparisons = results/mdr_dtr/mdr_all_comparisons.csv
+results_folder = results/mdr_mic_correlation

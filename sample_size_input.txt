@@ -1,0 +1,24 @@
+# ==============================================================================================
+# INPUT FILE FOR pediatric_sample_size_check.py   (step 1 of 5)
+#
+# Finds the bacteria-drug pairs with enough pediatric data: at least 20 isolates aged 0-18 in at
+# least 3 countries. Edit the two settings below, save, then run:
+#     python3 pediatric_sample_size_check.py
+#
+# pediatric_folder: one ATLAS "MIC Distribution" export per country, saved as .xlsx. For each country:
+#   - select ALL bacteria, ALL antibiotics, ALL years
+#   - set the age filter to 0-18 and select ONLY that country
+#   - View By: Species
+#   - save it as  atlas_ped_0to18_<Country>.xlsx   (spaces as _, commas dropped)
+#       atlas_ped_0to18_Argentina.xlsx
+#       atlas_ped_0to18_Korea_South.xlsx      ("Korea, South")
+#   If you downloaded in several rounds, put each round in a subfolder named pass1, pass2, ...
+#   inside pediatric_folder; the largest count for each pair and country is used.
+#
+# results_folder: where pediatric_sample_size.csv is written (padi_input.txt points to it).
+#
+# Folders can be full paths or relative to this file's folder.
+# ==============================================================================================
+
+pediatric_folder = data/pediatric_by_country
+results_folder = results/sample_size

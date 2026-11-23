@@ -1,0 +1,52 @@
+# ==============================================================================================
+# INPUT FILE FOR padi_full_pipeline.py   (step 2 of 5: MIC age trends)
+#
+# Edit the settings and the list of bacteria and drugs below, save, then run:
+#     python3 padi_full_pipeline.py
+# Run pediatric_sample_size_check.py first.
+# Folders can be full paths or relative to this file's folder.
+#
+# age_group_folder: one subfolder per bacterium (spaces as _), one ATLAS "MIC Distribution"
+# export per age group. For each: that bacterium, ALL antibiotics, ALL years, View By: Country,
+# age filter = the age group.
+#       <age_group_folder>/Escherichia_coli/atlas_pair_0-18.xlsx
+#       <age_group_folder>/Escherichia_coli/atlas_pair_19-64.xlsx
+#       <age_group_folder>/Escherichia_coli/atlas_pair_65+.xlsx
+#
+# sample_size_table: pediatric_sample_size.csv written by pediatric_sample_size_check.py.
+#
+# specimen_source_folders / year_folder: you do NOT need these files before the first run.
+# If a robust finding's specimen source or year mix differs between age groups, the run ends
+# with "ACTION NEEDED" and writes files_to_download.txt in results_folder, listing exactly
+# which files to download, the ATLAS filters, and the name and folder for each. Download them,
+# then run again. Several specimen source folders can be listed, separated by commas.
+#
+# results_folder: where the results go.
+# permutations: shuffled datasets for the permutation control (paper: 300). It is slow (hours);
+#   set it to 0 to skip the control for a quick run.
+# workers: processes used for the permutation control.
+#
+# BACTERIA AND DRUGS (bottom of this file):
+#   - One pair per line:   Bacteria name, Drug name       e.g.  Staphylococcus aureus, Levofloxacin
+#   - Every drug for one bacterium:    Escherichia coli, all
+#   - Every bacterium and drug in age_group_folder (what the paper did):    all
+#   - Bacteria names use spaces (folder Escherichia_coli = "Escherichia coli"). Drug names are
+#     not case sensitive; hyphens and spaces don't matter. Lines starting with # are ignored.
+#   IMPORTANT: the Benjamini-Hochberg correction covers every comparison in a run. The paper's
+#   results come from "all"; a shorter list gives different q-values.
+# ==============================================================================================
+
+age_group_folder = data/age_groups
+sample_size_table = results/sample_size/pediatric_sample_size.csv
+specimen_source_folders = data/specimen_source, data/specimen_source_extra
+year_folder = data/year
+results_folder = results/padi
+permutations = 300
+workers = 4
+
+# ---- Bacteria and drugs to analyze ----
+all
+
+# Examples (remove the # to use; then put a # in front of "all" above):
+# Staphylococcus aureus, Levofloxacin
+# Escherichia coli, all

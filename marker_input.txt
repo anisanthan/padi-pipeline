@@ -1,0 +1,22 @@
+# ==============================================================================================
+# INPUT FILE FOR marker_pipeline.py   (step 4 of 5: MRSA and CRAB)
+#
+# Tests whether MRSA (S. aureus, oxacillin MIC >= 4) and CRAB (A. baumannii, meropenem or
+# imipenem MIC >= 8) explain the age shifts. Edit the settings below, save, then run:
+#     python3 marker_pipeline.py
+# Run padi_full_pipeline.py first.
+# Folders can be full paths or relative to this file's folder.
+#
+# age_group_folder: the same age group exports padi_full_pipeline.py uses. This step needs
+#       <age_group_folder>/Staphylococcus_aureus/atlas_pair_0-18.xlsx, _19-64.xlsx, _65+.xlsx
+#       <age_group_folder>/Acinetobacter_baumannii/atlas_pair_0-18.xlsx, _19-64.xlsx, _65+.xlsx
+#
+# padi_age_trends: padi_age_trends.csv written by padi_full_pipeline.py. Used to mark which rows
+# of the zero-gap table are robust findings.
+#
+# results_folder: where the results go.
+# ==============================================================================================
+
+age_group_folder = data/age_groups
+padi_age_trends = results/padi/padi_age_trends.csv
+results_folder = results/markers
