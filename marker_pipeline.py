@@ -516,6 +516,12 @@ def robust_keys(path):
 
 
 def run(data_dir=DEFAULT_DATA_DIR, out_dir=DEFAULT_OUT_DIR, robust_table=None):
+    missing = [os.path.join(data_dir, safe(sp), f"atlas_pair_{g}.xlsx")
+               for sp in ("Staphylococcus aureus", "Acinetobacter baumannii") for g in AGE_GROUPS
+               if not os.path.exists(os.path.join(data_dir, safe(sp), f"atlas_pair_{g}.xlsx"))]
+    if missing:
+        raise SystemExit("This step needs the age group exports for S. aureus and A. baumannii. Missing:\n  "
+                         + "\n  ".join(missing) + "\nSee marker_input.txt for how to download and name them.")
     os.makedirs(out_dir, exist_ok=True)
     print("Part 1: marker prevalence by age", flush=True)
     prev = marker_prevalence(data_dir)

@@ -66,7 +66,7 @@ FLAGS = [("MDR", "mdr"), ("DTR", "dtr")]
 INDEX_DIFF_LIMIT = 0.5            # testing panel: coverage index difference, classes
 CLASS_DIFF_LIMIT = 10.0           # testing panel: one class's coverage difference, percentage points
 TITLE_RE = re.compile(r"from (.+?)(?:\s*\(N|$)")
-PANEL_NAME = {"Enterobacter hormaechei": "Enterobacter hormaechi"}   # how ATLAS spells it in the Species section
+PANEL_NAME = {"Enterobacter hormaechei": "Enterobacter hormaechi"}   # both spellings are accepted   # how ATLAS spells it in the Species section
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATA_DIR = os.path.join(HERE, "data", "mdr_dtr")
@@ -294,11 +294,27 @@ def norm_name(d):
     return "".join(ch for ch in d.lower() if ch.isalnum())
 
 
+_UNKNOWN_DRUGS = set()
+
+
 def drug_class(drug):
+    """Drug class for the testing panel check. A drug not in DRUG_CLASS (e.g. one ATLAS added later) is counted as
+    its own class, with a warning, so the run still finishes; add it to DRUG_CLASS for an exact panel check."""
     cls = DRUG_CLASS.get(norm_name(drug))
     if cls is None:
-        raise SystemExit(f"no drug class for {drug!r}: add it to DRUG_CLASS")
+        if drug not in _UNKNOWN_DRUGS:
+            _UNKNOWN_DRUGS.add(drug)
+            print(f"WARNING: no drug class for {drug!r}; counted as its own class in the testing panel check. "
+                  f"Add it to DRUG_CLASS in mdr_full_pipeline.py.", flush=True)
+        return f"Unclassified: {drug}"
     return cls
+
+
+def spellings(species):
+    """The bacterium's name plus any spelling ATLAS uses for it in the 'Species' section (see PANEL_NAME)."""
+    names = {species, PANEL_NAME.get(species, species)}
+    names |= {k for k, v in PANEL_NAME.items() if v == species}
+    return names
 
 
 def species_n_by_country(path, species):
@@ -307,8 +323,10 @@ def species_n_by_country(path, species):
     out = {}
     for country, secs in parse_composition_sections(path).items():
         sp = secs.get("Species", {})
-        if species in sp:
-            out[country] = sp[species]
+        for nm in spellings(species):
+            if nm in sp:
+                out[country] = sp[nm]
+                break
     return out
 
 
@@ -316,8 +334,9 @@ def species_n(path, species):
     """Isolate N from a worldwide (single specimen source or single year) export's 'Species' section, or None."""
     for _, secs in parse_composition_sections(path).items():
         sp = secs.get("Species", {})
-        if species in sp:
-            return sp[species]
+        for nm in spellings(species):
+            if nm in sp:
+                return sp[nm]
     return None
 
 

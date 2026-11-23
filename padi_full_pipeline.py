@@ -721,18 +721,34 @@ def discover_years(species, a, b, year_dir):
     if not os.path.isdir(d):
         return []
     def labels(g):
-        pre = f"atlas_pair_{g}_"
-        return {f[len(pre):-5] for f in os.listdir(d) if f.startswith(pre) and f.endswith(".xlsx")}
+        pre, out = f"atlas_pair_{g}_", set()
+        for fn in os.listdir(d):
+            if not (fn.startswith(pre) and fn.endswith(".xlsx")):
+                continue
+            name = fn[len(pre):-5]
+            if name.endswith(("_mdr", "_dtr")):        # MDR/DTR-filtered year files belong to mdr_full_pipeline.py
+                continue
+            out.add(name[:-len("_baseline")] if name.endswith("_baseline") else name)
+        return out
     return sorted(labels(a) & labels(b))
+
+
+def year_file(year_dir, species, g, year):
+    """Path of a year export: <age group>_<year>.xlsx, or the unfiltered <age group>_<year>_baseline.xlsx."""
+    d = os.path.join(year_dir, safe(species))
+    for suf in ("", "_baseline"):
+        p = os.path.join(d, f"atlas_pair_{g}_{year}{suf}.xlsx")
+        if os.path.exists(p):
+            return p
+    return os.path.join(d, f"atlas_pair_{g}_{year}.xlsx")
 
 
 def gather_year_entries(species, drug, a, b, year_dir):
     """[(year, entry_a, entry_b)] for every year with >= MIN_GLOBAL_N isolates of this drug in both age groups."""
-    d = os.path.join(year_dir, safe(species))
     entries = []
     for year in discover_years(species, a, b, year_dir):
-        ea = parse_flat_absolute(os.path.join(d, f"atlas_pair_{a}_{year}.xlsx")).get(drug)
-        eb = parse_flat_absolute(os.path.join(d, f"atlas_pair_{b}_{year}.xlsx")).get(drug)
+        ea = parse_flat_absolute(year_file(year_dir, species, a, year)).get(drug)
+        eb = parse_flat_absolute(year_file(year_dir, species, b, year)).get(drug)
         if ea and eb and ea["N"] >= MIN_GLOBAL_N and eb["N"] >= MIN_GLOBAL_N:
             entries.append((year, ea, eb))
     return entries
@@ -755,10 +771,16 @@ def needed_files(kind, species, a, b, comp_a, comp_b, site_folders, year_dir):
                            for d in folders for suf in ("", "_baseline"))
                 path = os.path.join(folders[0], safe(species), name + ".xlsx")
             else:
-                path = os.path.join(year_dir, safe(species), f"atlas_pair_{g}_{lv}.xlsx")
+                path = year_file(year_dir, species, g, lv)
                 have = os.path.exists(path)
             out.append((g, lv, path, have))
     return out
+
+
+def files_missing_drug(drug, paths):
+    """Existing exports in `paths` that do not contain `drug` at all (ATLAS can silently leave a drug out of an
+    export when other filters are set). These need to be downloaded again with the drug ticked."""
+    return [p for p in paths if os.path.exists(p) and drug not in parse_flat_absolute(p)]
 
 
 def stratified_check(entries, unit_name):
@@ -904,11 +926,10 @@ def run(pairs=None, data_dir=DEFAULT_DATA_DIR, sample_size_table=DEFAULT_SAMPLE_
     """pairs: {species: set of normalized drug names or None for all drugs}, or None for every species and drug."""
     t0 = time.time()
     if not os.path.isdir(data_dir):
-        raise SystemExit(f"data_folder not found: {data_dir}\nSet data_folder in the input file to the folder that holds "
-                         f"one subfolder per bacterium (see the instructions at the top of padi_input.txt).")
+        raise SystemExit(f"age_group_folder not found: {data_dir}\nSet age_group_folder in padi_input.txt to the folder "
+                         f"that holds one subfolder per bacterium (see the instructions at the top of padi_input.txt).")
     if sample_size_table and not os.path.exists(sample_size_table):
-        raise SystemExit(f"sample_size_table not found: {sample_size_table}\nRun pediatric_sample_size_check.py first, "
-                         f"or write 'sample_size_table = none' in the input file to skip the sample size check.")
+        raise SystemExit(f"sample_size_table not found: {sample_size_table}\nRun pediatric_sample_size_check.py first.")
     for d in (site_folders or []):
         if not os.path.isdir(d):
             print(f"NOTE: specimen source folder not found, ignored: {d}", flush=True)
@@ -1049,6 +1070,24 @@ def run(pairs=None, data_dir=DEFAULT_DATA_DIR, sample_size_table=DEFAULT_SAMPLE_
                         downloads[("source", species, g, lv)]["findings"].add(f"{drug} {r['comparison']}")
                     cols["check"] = (f"flagged, files needed: download {len(missing)} specimen source file(s) "
                                      f"listed in files_to_download.txt, then run again")
+                else:
+                    existing = []
+                    for g, lv, _, _ in need:
+                        for d_, suf in site_dirs:
+                            p = os.path.join(d_, safe(species), f"atlas_pair_{g}_{safe_site(lv)}{suf}.xlsx")
+                            if os.path.exists(p):
+                                existing.append((g, lv, p))
+                                break
+                    lacking = set(files_missing_drug(drug, [p for _, _, p in existing]))
+                    for g, lv, p in existing:
+                        if p in lacking:
+                            key = ("source", species, g, lv)
+                            downloads.setdefault(key, {"path": p, "findings": set(), "redownload": set()})
+                            downloads[key].setdefault("redownload", set()).add(drug)
+                            downloads[key]["findings"].add(f"{drug} {r['comparison']}")
+                    if lacking:
+                        cols["check"] = (f"flagged, files need re-downloading: {drug} is missing from "
+                                         f"{len(lacking)} specimen source file(s) (see files_to_download.txt)")
             r.update(specimen_source_check=cols["check"], n_sites_used=cols["n_used"], sites_used=cols["used"],
                      site_adjusted_log2_shift=cols.get("adjusted_log2_shift", ""),
                      site_adjusted_ci_lo=cols.get("ci_lo", ""), site_adjusted_ci_hi=cols.get("ci_hi", ""),
@@ -1171,6 +1210,8 @@ def run(pairs=None, data_dir=DEFAULT_DATA_DIR, sample_size_table=DEFAULT_SAMPLE_
         "They need the files below before they can be confirmed. Until then their robust_final is 'unknown'.",
         "Download each file from ATLAS (MIC Distribution), save it with exactly the name and folder shown,",
         "then run padi_full_pipeline.py again. One file covers every drug, so download it once.",
+        "Files marked RE-DOWNLOAD already exist but are missing the drug shown: ATLAS can leave a drug out of",
+        "the export when other filters are set, so tick that drug explicitly and replace the file.",
         "",
         "How to download each file:",
         "  - Select the bacterium shown and ALL antibiotics, ALL years (except for year files).",
@@ -1192,13 +1233,15 @@ def run(pairs=None, data_dir=DEFAULT_DATA_DIR, sample_size_table=DEFAULT_SAMPLE_
             lines.append(f"{species}  (needed for: {'; '.join(finds)})")
             for (_, _, g, lv), v in sp_items:
                 label = "specimen source" if kind == "source" else "year"
-                lines.append(f"  age {g:6s} {label} {lv:28s} -> {v['path']}")
+                redo = v.get("redownload")
+                note = f"   RE-DOWNLOAD: missing {', '.join(sorted(redo))}" if redo else ""
+                lines.append(f"  age {g:6s} {label} {lv:28s} -> {v['path']}{note}")
             lines.append("")
     with open(dl_path, "w") as fh:
         fh.write("\n".join(lines))
     n_files = len(downloads)
     print(f"\n>>> ACTION NEEDED: {len(waiting)} robust finding(s) need a specimen source or year check that this run "
-          f"could not do, because {n_files} file(s) are missing.\n>>> The list of files, where to save them and how "
+          f"could not do, because {n_files} file(s) are missing or need re-downloading.\n>>> The list of files, where to save them and how "
           f"to download them is in {dl_path}\n>>> Download them, then run padi_full_pipeline.py again.")
     return summary
 
