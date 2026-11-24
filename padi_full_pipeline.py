@@ -15,7 +15,7 @@ Steps, in order (same math and cutoffs as the paper):
   5. Mixed effects model (reported, not gating) for every comparison that clears the 0.5 floor.
   6. For candidates (|shift| >= 0.5 and uncorrected p < 0.05, i.e. robust plus those that only fail BH):
      specimen source and year composition check, % resistant in each age group (country-adjusted), the
-     EUCAST expected-resistant flag, and the median MIC of each age group with its susceptible / intermediate /
+     EUCAST expected-resistant flag, and the country-adjusted median MIC of each age group with its susceptible / intermediate /
      resistant class (ATLAS cell colours). A factor is flagged when its mix differs between the two age groups by
      TVD > 15 pp with chi-square p < 0.01.
   7. Specimen source check for flagged candidates: shift within each specimen source, weighted and bootstrapped.
@@ -847,14 +847,38 @@ def parse_mic_classes(path, sheet="Absolute"):
     return out
 
 
-def median_mic_class(d):
-    """(median MIC, its S/I/R class) of a pooled {mic: [count, class]} distribution."""
-    tot, acc = sum(c for c, _ in d.values()), 0
-    for m in sorted(d):
-        acc += d[m][0]
-        if acc >= tot / 2:
-            return m, d[m][1]
-    return None, None
+def median_mic_class(blocks_a, blocks_b, classes_a, classes_b, drug):
+    """Country-adjusted median MIC of each age group and its S/I/R class: ((mic_a, class_a), (mic_b, class_b)).
+    Same countries and weights as the MIC shift: qualifying countries (>= MIN_COUNTRY_N in both groups), each
+    weighted by the harmonic-mean N 2*n_a*n_b/(n_a+n_b). Each country's MIC counts become proportions, the
+    proportions are averaged with those weights, and the median of the averaged distribution is classified with
+    ATLAS's cell colours (breakpoints are the same in every country, so each MIC's class comes from the colour map)."""
+    cls = {}
+    for d in (classes_a.get(drug, {}), classes_b.get(drug, {})):
+        for m, (_, c) in d.items():
+            if c:
+                cls[m] = c
+    entries = qualifying_countries(blocks_a, blocks_b, drug)
+    if not entries:
+        return (None, None), (None, None)
+    out = []
+    for side in (1, 2):
+        avg, wsum = {}, 0.0
+        for _, ea, eb in entries:
+            w = 2 * ea["N"] * eb["N"] / (ea["N"] + eb["N"])
+            e = ea if side == 1 else eb
+            tot = sum(e["counts"].values())
+            for m, n in e["counts"].items():
+                avg[m] = avg.get(m, 0.0) + w * n / tot
+            wsum += w
+        acc, res = 0.0, (None, None)
+        for m in sorted(avg):
+            acc += avg[m] / wsum
+            if acc >= 0.5 - 1e-12:
+                res = (m, cls.get(m))
+                break
+        out.append(res)
+    return tuple(out)
 
 
 def specimen_source_mix(comp):
@@ -1039,8 +1063,8 @@ def run(pairs=None, data_dir=DEFAULT_DATA_DIR, sample_size_table=DEFAULT_SAMPLE_
             for g in (a, b):
                 if (species, g) not in cls_cache:
                     cls_cache[(species, g)] = parse_mic_classes(f["paths"][g])
-            ma, ca = median_mic_class(cls_cache[(species, a)].get(drug, {}))
-            mb, cb = median_mic_class(cls_cache[(species, b)].get(drug, {}))
+            (ma, ca), (mb, cb) = median_mic_class(f["blocks"][a], f["blocks"][b],
+                                                  cls_cache[(species, a)], cls_cache[(species, b)], drug)
             r.update(median_mic_a=ma, median_class_a=ca, median_mic_b=mb, median_class_b=cb,
                      median_class_change=f"{ca} -> {cb}" if ca != cb else "no change")
 
